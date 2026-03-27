@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TRACKR</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- SHARED NAV -->
+  <header class="app-header">
+    <div class="header-inner">
+
+      <!-- Mobile: hamburger -->
+      <button class="hamburger" id="btn-hamburger" aria-label="Open menu">
+        <span></span><span></span><span></span>
+      </button>
+
+      <h1 class="app-title" id="nav-logo">
+        <svg width="120" height="28" viewBox="0 0 220 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="TRACKR">
+          <rect x="0" y="6"  width="40" height="8" fill="currentColor"/>
+          <rect x="0" y="20" width="28" height="8" fill="currentColor"/>
+          <rect x="0" y="34" width="16" height="8" fill="currentColor"/>
+          <text x="56" y="40" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="800" font-size="34" letter-spacing="-1" fill="currentColor">TRACKR</text>
+        </svg>
+      </h1>
+
+      <!-- Desktop: nav links -->
+      <nav class="header-nav">
+        <button class="nav-link active" id="nav-home">Home</button>
+        <button class="nav-link" id="nav-reports">Reports</button>
+      </nav>
+
+      <!-- Desktop: right actions -->
+      <div class="header-right">
+        <button class="btn btn-primary" id="btn-new-list">+ New List</button>
+        <button class="btn-icon" id="btn-profile-nav" aria-label="Profile">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square">
+            <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Mobile: new list -->
+      <button class="btn btn-primary mobile-new-list-btn" id="btn-new-list-mobile" aria-label="New List">+</button>
+
+    </div>
+  </header>
+
+  <!-- MOBILE MENU OVERLAY -->
+  <div id="mobile-menu" class="mobile-menu" aria-hidden="true">
+    <nav class="mobile-menu-nav">
+      <button class="mobile-nav-link" id="mob-home">Home</button>
+      <button class="mobile-nav-link" id="mob-reports">Reports</button>
+      <button class="mobile-nav-link" id="mob-profile">Profile</button>
+    </nav>
+  </div>
+
+  <!-- HOME VIEW -->
+  <div id="view-home" class="view active">
+    <main class="container">
+      <div id="empty-state" class="empty-state hidden">
+        <div class="empty-icon">📋</div>
+        <h2>No lists yet</h2>
+        <p>Create your first activity list to start tracking.</p>
+        <button class="btn btn-primary" id="btn-new-list-empty">+ Create a List</button>
+      </div>
+      <p class="section-heading" id="lists-heading">Your Lists</p>
+      <div id="lists-grid" class="lists-grid"></div>
+    </main>
+  </div>
+
+  <!-- LIST DETAIL VIEW -->
+  <div id="view-detail" class="view">
+    <main class="container">
+      <div class="detail-page-header">
+        <button class="breadcrumb" id="btn-back">&#8592; Lists</button>
+        <div class="detail-page-title-row">
+          <div class="detail-page-title">
+            <span id="detail-icon" class="detail-header-icon"></span>
+            <span id="detail-title"></span>
+          </div>
+          <div class="detail-meta">
+            <span class="badge" id="detail-type-badge"></span>
+            <button class="btn btn-danger-outline" id="btn-delete-list">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="add-entry-bar">
+        <button class="btn btn-primary btn-add-activity" id="btn-add-entry">+ Add Activity</button>
+      </div>
+
+      <div id="entries-empty" class="entries-empty hidden">
+        <p>No activities logged yet. Hit "Add Activity" to record one.</p>
+      </div>
+
+      <ul id="entries-list" class="entries-list"></ul>
+    </main>
+  </div>
+
+  <!-- PROFILE VIEW -->
+  <div id="view-profile" class="view">
+    <main class="container">
+      <div class="profile-hero">
+        <div class="profile-avatar" id="profile-avatar">?</div>
+        <div class="profile-hero-text">
+          <div class="profile-name-display" id="profile-name-display">Your Name</div>
+          <div class="profile-goal-display" id="profile-goal-display">Set a goal or tagline</div>
+        </div>
+      </div>
+
+      <div class="profile-stats" id="profile-stats"></div>
+
+      <div class="profile-section">
+        <p class="section-heading">Edit Profile</p>
+
+        <label class="form-label" for="profile-name-input">Name</label>
+        <input type="text" id="profile-name-input" class="form-input" placeholder="Your name" maxlength="40" autocomplete="off" />
+
+        <label class="form-label" style="margin-top:20px;" for="profile-goal-input">Goal / Tagline</label>
+        <input type="text" id="profile-goal-input" class="form-input" placeholder="e.g. Build better habits every day" maxlength="80" autocomplete="off" />
+
+        <button class="btn btn-primary profile-save-btn" id="btn-save-profile">Save Changes</button>
+      </div>
+
+      <div class="profile-logout-section">
+        <p class="section-heading">Account</p>
+        <button class="btn btn-danger-outline" id="btn-logout">Log Out</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- REPORTS VIEW -->
+  <div id="view-reports" class="view">
+    <main class="container">
+      <p class="section-heading">Overview</p>
+      <div class="report-summary" id="report-summary"></div>
+
+      <p class="section-heading" style="margin-top:40px">Activity by List</p>
+      <div id="report-lists"></div>
+
+      <p class="section-heading" style="margin-top:40px">Recent Activity</p>
+      <ul id="report-feed" class="report-feed"></ul>
+    </main>
+  </div>
+
+  <!-- LANDING VIEW -->
+  <div id="view-landing" class="view landing-view">
+    <div class="landing-inner">
+      <div class="landing-logo">
+        <svg width="180" height="40" viewBox="0 0 220 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="TRACKR">
+          <rect x="0" y="6"  width="40" height="8" fill="currentColor"/>
+          <rect x="0" y="20" width="28" height="8" fill="currentColor"/>
+          <rect x="0" y="34" width="16" height="8" fill="currentColor"/>
+          <text x="56" y="40" font-family="'Helvetica Neue',Helvetica,Arial,sans-serif" font-weight="800" font-size="34" letter-spacing="-1" fill="currentColor">TRACKR</text>
+        </svg>
+      </div>
+
+      <div class="landing-hero">
+        <h2 class="landing-headline">TRACK EVERY<br>WIN.</h2>
+        <p class="landing-sub">Build habits. Log activities. Stay consistent.<br>Your progress, always in view.</p>
+        <button class="btn btn-primary landing-cta" id="btn-get-started">Get Started</button>
+      </div>
+
+      <div class="landing-features">
+        <div class="landing-feature">
+          <span class="landing-feature-icon">📋</span>
+          <div>
+            <div class="landing-feature-title">Custom Lists</div>
+            <div class="landing-feature-desc">Create activity lists for any goal — fitness, reading, mindfulness, and more.</div>
+          </div>
+        </div>
+        <div class="landing-feature">
+          <span class="landing-feature-icon">⚡</span>
+          <div>
+            <div class="landing-feature-title">One-Tap Logging</div>
+            <div class="landing-feature-desc">Log a completed activity instantly. No friction, just momentum.</div>
+          </div>
+        </div>
+        <div class="landing-feature">
+          <span class="landing-feature-icon">🔥</span>
+          <div>
+            <div class="landing-feature-title">Streak Tracking</div>
+            <div class="landing-feature-desc">See your day streak grow and stay motivated to keep showing up.</div>
+          </div>
+        </div>
+      </div>
+
+      <p class="landing-footer">© 2025 TRACKR. All rights reserved.</p>
+    </div>
+  </div>
+
+  <!-- AUTH MODAL -->
+  <div id="auth-overlay" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true">
+
+      <!-- LOGIN PANEL -->
+      <div id="auth-login-panel">
+        <div class="modal-header">
+          <h2>Welcome Back</h2>
+          <button class="modal-close" id="btn-auth-close" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="auth-sub">Log in to your TRACKR account.</p>
+          <div id="auth-error" class="auth-error hidden"></div>
+
+          <label class="form-label" for="login-email">Email</label>
+          <input type="email" id="login-email" class="form-input" placeholder="you@example.com" autocomplete="email" />
+
+          <label class="form-label" style="margin-top:18px" for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-input" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <div class="modal-footer auth-footer">
+          <button class="btn btn-primary auth-submit-btn" id="btn-login">Log In</button>
+          <p class="auth-switch">Don't have an account? <button class="auth-link" id="btn-show-register">Create one</button></p>
+        </div>
+      </div>
+
+      <!-- REGISTER PANEL -->
+      <div id="auth-register-panel" class="hidden">
+        <div class="modal-header">
+          <h2>Create Account</h2>
+          <button class="modal-close" id="btn-auth-close-reg" aria-label="Close">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="auth-sub">Start tracking your activities today.</p>
+          <div id="auth-reg-error" class="auth-error hidden"></div>
+
+          <label class="form-label" for="reg-name">Full Name</label>
+          <input type="text" id="reg-name" class="form-input" placeholder="Your name" maxlength="40" autocomplete="name" />
+
+          <label class="form-label" style="margin-top:18px" for="reg-email">Email</label>
+          <input type="email" id="reg-email" class="form-input" placeholder="you@example.com" autocomplete="email" />
+
+          <label class="form-label" style="margin-top:18px" for="reg-password">Password</label>
+          <input type="password" id="reg-password" class="form-input" placeholder="Min. 6 characters" autocomplete="new-password" />
+        </div>
+        <div class="modal-footer auth-footer">
+          <button class="btn btn-primary auth-submit-btn" id="btn-register">Create Account</button>
+          <p class="auth-switch">Already have an account? <button class="auth-link" id="btn-show-login">Log in</button></p>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- FIXED THEME TOGGLE -->
+  <button class="btn-theme-fab" id="btn-theme" aria-label="Toggle theme">🌙</button>
+
+  <!-- CREATE LIST MODAL -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-header">
+        <h2 id="modal-title">Create New List</h2>
+        <button class="modal-close" id="btn-modal-close" aria-label="Close">&times;</button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label" for="list-name">List Name</label>
+        <input type="text" id="list-name" class="form-input" placeholder="e.g. Morning Routine" maxlength="50" autocomplete="off" />
+
+        <label class="form-label" style="margin-top:20px" for="activity-type-input">Activity Type</label>
+        <input type="text" id="activity-type-input" class="form-input" placeholder="e.g. Running, Journaling, Cold Shower..." maxlength="40" autocomplete="off" />
+
+        <label class="form-label" style="margin-top:20px">Icon</label>
+        <div class="icon-grid" id="icon-grid"></div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-modal">Cancel</button>
+        <button class="btn btn-primary" id="btn-create-list">Create List</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM LOGOUT MODAL -->
+  <div id="logout-overlay" class="modal-overlay hidden">
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2>Log Out?</h2>
+      </div>
+      <div class="modal-body">
+        <p>You'll be returned to the TRACKR landing page. Your data stays saved on this device.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-logout">Cancel</button>
+        <button class="btn btn-danger" id="btn-confirm-logout">Log Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONFIRM DELETE MODAL -->
+  <div id="confirm-overlay" class="modal-overlay hidden">
+    <div class="modal modal-sm" role="dialog" aria-modal="true">
+      <div class="modal-header">
+        <h2>Delete List?</h2>
+      </div>
+      <div class="modal-body">
+        <p>This will permanently delete "<strong id="confirm-list-name"></strong>" and all its entries. This cannot be undone.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-ghost" id="btn-cancel-delete">Cancel</button>
+        <button class="btn btn-danger" id="btn-confirm-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
