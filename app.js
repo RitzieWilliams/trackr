@@ -15,6 +15,12 @@ const LEGACY_TYPES = {
   learning:'🧠', social:'🤝', mindful:'🧘', custom:'⭐',
 };
 
+// ── Supabase Client ─────────────────────────────────────────────────────────
+const supabaseClient = window.supabase.createClient(
+  window.SUPABASE_URL,
+  window.SUPABASE_ANON_KEY
+);
+
 // ── State ───────────────────────────────────────────────────────────────────
 let state = { lists: [] };
 let profile = { name: '', goal: '' };
@@ -41,15 +47,27 @@ function loadTheme() {
 }
 
 // ── Persistence ─────────────────────────────────────────────────────────────
-function loadState() {
-  try {
-    const raw = localStorage.getItem('activityTracker');
-    if (raw) state = JSON.parse(raw);
-  } catch (_) { state = { lists: [] }; }
-}
+async function loadLists() {
+  const { data, error } = await supabaseClient
+    .from('lists')
+    .select('*, entries(*)')
+    .order('created_at', { ascending: true });
 
-function saveState() {
-  localStorage.setItem('activityTracker', JSON.stringify(state));
+  if (error) { console.error(error); state.lists = []; return; }
+
+  state.lists = data.map(list => ({
+    id: list.id,
+    name: list.name,
+    activityType: list.activity_type,
+    icon: list.icon,
+    createdAt: list.created_at,
+    entries: (list.entries || []).map(e => ({
+      id: e.id,
+      text: e.text,
+      completed: e.completed,
+      createdAt: e.created_at
+    }))
+  }));
 }
 
 function loadProfile() {
@@ -64,10 +82,6 @@ function saveProfile() {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-}
-
 function timeAgo(iso) {
   const seconds = Math.floor((Date.now() - new Date(iso)) / 1000);
   if (seconds < 60)  return 'just now';
@@ -181,18 +195,37 @@ function renderEntries() {
 }
 
 // ── Entry Actions ────────────────────────────────────────────────────────────
-function addEntry() {
+async function addEntry() {
   const list = getList(currentListId);
   const text = `${getListActivityType(list)} completed`;
-  list.entries.push({ id: uid(), text, completed: true, createdAt: new Date().toISOString() });
-  saveState();
+
+  const { data, error } = await supabaseClient
+    .from('entries')
+    .insert({ list_id: currentListId, text, completed: true })
+    .select()
+    .single();
+
+  if (error) { alert('Failed to add activity.'); return; }
+
+  list.entries.push({
+    id: data.id,
+    text: data.text,
+    completed: data.completed,
+    createdAt: data.created_at
+  });
   renderEntries();
 }
 
-function deleteEntry(entryId) {
+async function deleteEntry(entryId) {
+  const { error } = await supabaseClient
+    .from('entries')
+    .delete()
+    .eq('id', entryId);
+
+  if (error) { alert('Failed to delete entry.'); return; }
+
   const list = getList(currentListId);
   list.entries = list.entries.filter(e => e.id !== entryId);
-  saveState();
   renderEntries();
 }
 
@@ -225,19 +258,39 @@ function renderIconGrid() {
   });
 }
 
-function createList() {
+async function createList() {
   const name         = document.getElementById('list-name').value.trim();
   const activityType = document.getElementById('activity-type-input').value.trim();
 
   if (!name)         { document.getElementById('list-name').focus(); return; }
   if (!activityType) { document.getElementById('activity-type-input').focus(); return; }
 
-  const newList = { id: uid(), name, activityType, icon: selectedIcon, entries: [], createdAt: new Date().toISOString() };
+  const { data: { session } } = await supabaseClient.auth.getSession();
+
+  const { data, error } = await supabaseClient
+    .from('lists')
+    .insert({
+      user_id: session.user.id,
+      name,
+      activity_type: activityType,
+      icon: selectedIcon
+    })
+    .select()
+    .single();
+
+  if (error) { console.error('Create list error:', error); alert('Failed to create list: ' + error.message); return; }
+
+  const newList = {
+    id: data.id,
+    name: data.name,
+    activityType: data.activity_type,
+    icon: data.icon,
+    createdAt: data.created_at,
+    entries: []
+  };
   state.lists.push(newList);
-  saveState();
   closeCreateModal();
   renderHome();
-  // Open the new list immediately
   openDetail(newList.id);
 }
 
@@ -252,10 +305,16 @@ function closeDeleteConfirm() {
   document.getElementById('confirm-overlay').classList.add('hidden');
 }
 
-function deleteList() {
+async function deleteList() {
+  const { error } = await supabaseClient
+    .from('lists')
+    .delete()
+    .eq('id', currentListId);
+
+  if (error) { alert('Failed to delete list.'); return; }
+
   state.lists = state.lists.filter(l => l.id !== currentListId);
   currentListId = null;
-  saveState();
   closeDeleteConfirm();
   renderHome();
   showView('view-home');
@@ -365,9 +424,9 @@ function showLanding() {
   showView('view-landing');
 }
 
-function enterApp() {
+async function enterApp() {
   document.querySelector('.app-header').classList.remove('hidden');
-  localStorage.setItem('trackrSession', '1');
+  await loadLists();
   setActiveNav('nav-home');
   renderHome();
   showView('view-home');
@@ -397,8 +456,14 @@ function clearAuthErrors() {
   ['auth-error', 'auth-reg-error'].forEach(id => {
     const el = document.getElementById(id);
     el.textContent = '';
-    el.classList.add('hidden');
+    el.className = 'auth-error hidden';
   });
+}
+
+function showAuthInfo(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.className = 'auth-info';
 }
 
 function showAuthError(id, msg) {
@@ -407,51 +472,74 @@ function showAuthError(id, msg) {
   el.classList.remove('hidden');
 }
 
-function getAccounts() {
-  try { return JSON.parse(localStorage.getItem('trackrAccounts') || '{}'); } catch { return {}; }
-}
-
-function handleLogin() {
+async function handleLogin() {
   const email    = document.getElementById('login-email').value.trim().toLowerCase();
   const password = document.getElementById('login-password').value;
 
   if (!email || !password) { showAuthError('auth-error', 'Please enter your email and password.'); return; }
 
-  const accounts = getAccounts();
-  const account  = accounts[email];
+  const btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  btn.textContent = 'Logging in...';
+  clearAuthErrors();
 
-  if (!account || account.password !== password) {
-    showAuthError('auth-error', 'Incorrect email or password.');
+  const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+
+  btn.disabled = false;
+  btn.textContent = 'Log In';
+
+  if (error) {
+    showAuthError('auth-error', error.message);
     return;
   }
 
-  // Restore profile for this account
-  profile = { name: account.name || '', goal: account.goal || '' };
-  saveProfile();
+  const meta = data.user?.user_metadata;
+  if (meta?.name) {
+    profile.name = meta.name;
+    saveProfile();
+  }
+
   closeAuthModal();
-  enterApp();
+  await enterApp();
 }
 
-function handleRegister() {
+async function handleRegister() {
   const name     = document.getElementById('reg-name').value.trim();
   const email    = document.getElementById('reg-email').value.trim().toLowerCase();
   const password = document.getElementById('reg-password').value;
 
-  if (!name)                      { showAuthError('auth-reg-error', 'Please enter your name.'); return; }
+  if (!name)                          { showAuthError('auth-reg-error', 'Please enter your name.'); return; }
   if (!email || !email.includes('@')) { showAuthError('auth-reg-error', 'Please enter a valid email.'); return; }
-  if (password.length < 6)        { showAuthError('auth-reg-error', 'Password must be at least 6 characters.'); return; }
+  if (password.length < 6)            { showAuthError('auth-reg-error', 'Password must be at least 6 characters.'); return; }
 
-  const accounts = getAccounts();
-  if (accounts[email])            { showAuthError('auth-reg-error', 'An account with this email already exists.'); return; }
+  const btn = document.getElementById('btn-register');
+  btn.disabled = true;
+  btn.textContent = 'Creating account...';
+  clearAuthErrors();
 
-  accounts[email] = { name, password };
-  localStorage.setItem('trackrAccounts', JSON.stringify(accounts));
+  const { data, error } = await supabaseClient.auth.signUp({
+    email,
+    password,
+    options: { data: { name } }
+  });
 
-  // Pre-fill profile with their name
+  btn.disabled = false;
+  btn.textContent = 'Create Account';
+
+  if (error) {
+    showAuthError('auth-reg-error', error.message);
+    return;
+  }
+
+  if (data.user && !data.session) {
+    showAuthInfo('auth-reg-error', 'Check your email for a confirmation link to complete registration.');
+    return;
+  }
+
   profile = { name, goal: '' };
   saveProfile();
   closeAuthModal();
-  enterApp();
+  await enterApp();
 }
 
 // ── Logout ────────────────────────────────────────────────────────────────────
@@ -463,8 +551,8 @@ function closeLogoutConfirm() {
   document.getElementById('logout-overlay').classList.add('hidden');
 }
 
-function confirmLogout() {
-  localStorage.removeItem('trackrSession');
+async function confirmLogout() {
+  await supabaseClient.auth.signOut();
   closeLogoutConfirm();
   showLanding();
 }
@@ -542,18 +630,27 @@ function saveProfileForm() {
 }
 
 // ── Event Wiring ─────────────────────────────────────────────────────────────
-function init() {
+async function init() {
   loadTheme();
-  loadState();
   loadProfile();
 
-  const hasSession = localStorage.getItem('trackrSession');
-  if (!hasSession) {
+  const { data: { session } } = await supabaseClient.auth.getSession();
+  if (!session) {
     showLanding();
   } else {
-    renderHome();
-    showView('view-home');
+    const meta = session.user?.user_metadata;
+    if (meta?.name && !profile.name) {
+      profile.name = meta.name;
+      saveProfile();
+    }
+    await enterApp();
   }
+
+  supabaseClient.auth.onAuthStateChange((event) => {
+    if (event === 'SIGNED_OUT') {
+      showLanding();
+    }
+  });
 
   // Theme FAB
   document.getElementById('btn-theme').addEventListener('click', toggleTheme);
@@ -632,8 +729,8 @@ function init() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  init();
+document.addEventListener('DOMContentLoaded', async () => {
+  await init();
   // Refresh timestamps every 30 seconds while the detail view is visible
   setInterval(() => {
     if (currentListId && document.getElementById('view-detail').classList.contains('active')) {

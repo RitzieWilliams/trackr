@@ -1080,6 +1080,24 @@ body {
 }
 .auth-link:hover { color: var(--primary); }
 
+.auth-info {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 10px 14px;
+  margin-bottom: 18px;
+}
+
+:root[data-theme="light"] .auth-info {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.auth-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Utility ── */
 .hidden { display: none !important; }
 
