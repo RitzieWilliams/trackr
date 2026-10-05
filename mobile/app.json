@@ -2,6 +2,7 @@
   "expo": {
     "name": "TRACKR",
     "slug": "trackr",
+    "owner": "ritzie-designs",
     "scheme": "trackr",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -23,7 +24,22 @@
     "plugins": [
       "expo-router",
       "expo-status-bar",
-      "expo-sqlite"
-    ]
+      "expo-sqlite",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 140,
+          "backgroundColor": "#111111"
+        }
+      ],
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "fc2703a6-9dda-4e20-b550-2b1ec91032fd"
+      }
+    }
   }
 }
