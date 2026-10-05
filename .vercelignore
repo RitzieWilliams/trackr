@@ -1,0 +1,2 @@
+# The Expo mobile app is built separately with EAS; keep it out of the website deploy
+mobile/
