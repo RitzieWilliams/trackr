@@ -26,6 +26,9 @@ let state = { lists: [] };
 let profile = { name: '', goal: '' };
 let currentListId = null;
 let selectedIcon = ICONS[0];
+let selectedMode = 'up';
+let editingListId = null; // set while the list modal is editing an existing list
+let showArchived = false;
 let isDark = true;
 let previousView = 'view-home';
 
@@ -60,6 +63,9 @@ async function loadLists() {
     name: list.name,
     activityType: list.activity_type,
     icon: list.icon,
+    countMode: list.count_mode || 'up',
+    target: list.target ?? null,
+    archivedAt: list.archived_at ?? null,
     createdAt: list.created_at,
     entries: (list.entries || []).map(e => ({
       id: e.id,
@@ -111,6 +117,28 @@ function timeOfDay(iso) {
   return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
+// Count-up lists track toward an optional goal; count-down lists start at
+// `target` and each entry takes one away. Both are "reached" at the target.
+function getProgress(list) {
+  const count  = list.entries.length;
+  const mode   = list.countMode || 'up';
+  const target = list.target || null;
+
+  if (mode === 'down') {
+    const remaining = target - count;
+    return { mode, count, target, remaining, reached: remaining <= 0, pct: Math.min(100, (count / target) * 100) };
+  }
+  if (!target) return { mode, count, target: null, remaining: null, reached: false, pct: null };
+  return { mode, count, target, remaining: target - count, reached: count >= target, pct: Math.min(100, (count / target) * 100) };
+}
+
+function progressLabel(list) {
+  const p = getProgress(list);
+  if (p.mode === 'down') return p.remaining >= 0 ? `${p.remaining} left` : `${-p.remaining} over`;
+  if (!p.target) return `${p.count} logged`;
+  return `${p.count} / ${p.target}`;
+}
+
 function getListIcon(list) {
   return list.icon || LEGACY_TYPES[list.type] || '⭐';
 }
@@ -136,32 +164,64 @@ function renderHome() {
   const empty = document.getElementById('empty-state');
 
   const heading = document.getElementById('lists-heading');
+  const archivedSection = document.getElementById('archived-section');
+  const allArchivedNote = document.getElementById('all-archived-note');
+
+  const active   = state.lists.filter(l => !l.archivedAt);
+  const archived = state.lists.filter(l => l.archivedAt);
+
   if (state.lists.length === 0) {
     empty.classList.remove('hidden');
     heading.classList.add('hidden');
+    allArchivedNote.classList.add('hidden');
+    archivedSection.classList.add('hidden');
     grid.innerHTML = '';
     return;
   }
 
   empty.classList.add('hidden');
   heading.classList.remove('hidden');
-  grid.innerHTML = state.lists.map(list => {
-    return `
-      <div class="list-card" data-id="${list.id}">
-        <div class="card-accent-bar"></div>
-        <div class="card-top">
-          <div class="card-icon">${getListIcon(list)}</div>
-          <div class="card-text">
-            <div class="card-name">${escHtml(list.name)}</div>
-            <div class="card-type">${escHtml(getListActivityType(list))}</div>
+  allArchivedNote.classList.toggle('hidden', active.length > 0);
+  grid.innerHTML = active.map(list => listCardHtml(list)).join('');
+
+  archivedSection.classList.toggle('hidden', archived.length === 0);
+  document.getElementById('archived-toggle-label').textContent = `Archived (${archived.length})`;
+  document.getElementById('btn-toggle-archived').setAttribute('aria-expanded', showArchived);
+  archivedSection.classList.toggle('open', showArchived);
+  const archivedGrid = document.getElementById('archived-grid');
+  archivedGrid.classList.toggle('hidden', !showArchived);
+  archivedGrid.innerHTML = archived.map(list => listCardHtml(list)).join('');
+
+  [grid, archivedGrid].forEach(g => {
+    g.querySelectorAll('.list-card').forEach(card => {
+      card.addEventListener('click', () => openDetail(card.dataset.id));
+    });
+  });
+  archivedGrid.querySelectorAll('[data-action="restore"]').forEach(btn => {
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      setListArchived(btn.closest('.list-card').dataset.id, false);
+    });
+  });
+}
+
+function listCardHtml(list) {
+  return `
+    <div class="list-card${list.archivedAt ? ' archived' : ''}" data-id="${list.id}">
+      <div class="card-accent-bar"></div>
+      <div class="card-top">
+        <div class="card-icon">${getListIcon(list)}</div>
+        <div class="card-text">
+          <div class="card-name">${escHtml(list.name)}</div>
+          <div class="card-type">${escHtml(getListActivityType(list))}</div>
+          <div class="card-progress">
+            ${progressLabel(list)}
+            ${getProgress(list).reached ? '<span class="goal-badge">🎉 Goal reached</span>' : ''}
           </div>
         </div>
-      </div>`;
-  }).join('');
-
-  grid.querySelectorAll('.list-card').forEach(card => {
-    card.addEventListener('click', () => openDetail(card.dataset.id));
-  });
+      </div>
+      ${list.archivedAt ? '<button class="btn btn-ghost card-restore" data-action="restore">Restore</button>' : ''}
+    </div>`;
 }
 
 // ── Detail View ──────────────────────────────────────────────────────────────
@@ -172,6 +232,8 @@ function openDetail(listId) {
   document.getElementById('detail-icon').textContent  = getListIcon(list);
   document.getElementById('detail-title').textContent = list.name;
   document.getElementById('detail-type-badge').textContent = `${getListIcon(list)} ${getListActivityType(list)}`;
+  document.getElementById('detail-archived-badge').classList.toggle('hidden', !list.archivedAt);
+  document.getElementById('btn-archive-list').textContent = list.archivedAt ? 'Restore' : 'Archive';
 
   renderEntries();
   showView('view-detail');
@@ -182,6 +244,8 @@ function renderEntries() {
   const ul   = document.getElementById('entries-list');
   const noEntries = document.getElementById('entries-empty');
   const total = list.entries.length;
+
+  renderDetailProgress(list);
 
   if (total === 0) {
     noEntries.classList.remove('hidden');
@@ -217,10 +281,41 @@ function renderEntries() {
   });
 }
 
+function renderDetailProgress(list) {
+  const p = getProgress(list);
+  let sub;
+  if (p.mode === 'down') sub = `Counting down from ${p.target}`;
+  else if (p.target)     sub = `Goal: ${p.target}`;
+  else                   sub = 'Counting up';
+
+  document.getElementById('detail-progress').innerHTML = `
+    <div class="detail-progress-row">
+      <span class="detail-progress-value">${progressLabel(list)}</span>
+      <span class="detail-progress-sub">${sub}</span>
+      ${p.reached ? '<span class="goal-badge">🎉 Goal reached</span>' : ''}
+    </div>
+    ${p.pct === null ? '' : `<div class="progress-bar-wrap"><div class="progress-bar" style="width:${p.pct}%"></div></div>`}
+  `;
+}
+
+// ── Goal Modal ───────────────────────────────────────────────────────────────
+function openGoalModal(list) {
+  const p = getProgress(list);
+  document.getElementById('goal-message').textContent = p.mode === 'down'
+    ? `${list.name} counted down from ${p.target} to zero.`
+    : `You've logged ${p.target} × ${getListActivityType(list)} — goal complete.`;
+  document.getElementById('goal-overlay').classList.remove('hidden');
+}
+
+function closeGoalModal() {
+  document.getElementById('goal-overlay').classList.add('hidden');
+}
+
 // ── Entry Actions ────────────────────────────────────────────────────────────
 async function addEntry() {
   const list = getList(currentListId);
   const text = `${getListActivityType(list)} completed`;
+  const wasReached = getProgress(list).reached;
 
   const { data, error } = await supabaseClient
     .from('entries')
@@ -237,6 +332,8 @@ async function addEntry() {
     createdAt: data.created_at
   });
   renderEntries();
+
+  if (!wasReached && getProgress(list).reached) openGoalModal(list);
 }
 
 async function deleteEntry(entryId) {
@@ -252,18 +349,76 @@ async function deleteEntry(entryId) {
   renderEntries();
 }
 
-// ── Create List Modal ────────────────────────────────────────────────────────
-function openCreateModal() {
-  selectedIcon = ICONS[0];
-  document.getElementById('list-name').value = '';
-  document.getElementById('activity-type-input').value = '';
+// ── Create / Edit List Modal ─────────────────────────────────────────────────
+// Pass a list to edit it; call with no argument to create a new one.
+function openListModal(list = null) {
+  editingListId = list ? list.id : null;
+  selectedIcon  = list ? getListIcon(list) : ICONS[0];
+
+  document.getElementById('modal-title').textContent     = list ? 'Edit List' : 'Create New List';
+  document.getElementById('btn-create-list').textContent = list ? 'Save Changes' : 'Create List';
+  document.getElementById('list-name').value             = list ? list.name : '';
+  document.getElementById('activity-type-input').value   = list ? getListActivityType(list) : '';
+  document.getElementById('target-input').value          = list && list.target ? list.target : '';
+
+  setCountMode(list ? list.countMode || 'up' : 'up');
   renderIconGrid();
   document.getElementById('modal-overlay').classList.remove('hidden');
   setTimeout(() => document.getElementById('list-name').focus(), 60);
 }
 
-function closeCreateModal() {
+function closeListModal() {
   document.getElementById('modal-overlay').classList.add('hidden');
+  editingListId = null;
+}
+
+function setCountMode(mode) {
+  selectedMode = mode;
+  document.querySelectorAll('.mode-option').forEach(el => {
+    const active = el.dataset.mode === mode;
+    el.classList.toggle('active', active);
+    el.setAttribute('aria-pressed', active);
+  });
+
+  const isDown = mode === 'down';
+  document.getElementById('target-label').textContent = isDown ? 'Starting Number' : 'Goal (optional)';
+  document.getElementById('target-input').placeholder = isDown ? 'e.g. 10' : 'e.g. 5';
+  setTargetHint(isDown
+    ? 'Each entry takes one away. You\'ll be notified when it hits zero.'
+    : 'You\'ll be notified when you reach it. Leave blank to just keep count.');
+}
+
+function setTargetHint(msg, isError = false) {
+  const hint = document.getElementById('target-hint');
+  hint.textContent = msg;
+  hint.classList.toggle('form-hint-error', isError);
+}
+
+// Returns { ok, target } where target is a positive integer or null (no goal)
+function readTarget() {
+  const input = document.getElementById('target-input');
+  const raw = input.value.trim();
+
+  if (raw === '') {
+    if (selectedMode === 'down') {
+      setTargetHint('Enter a starting number to count down from.', true);
+      input.focus();
+      return { ok: false };
+    }
+    return { ok: true, target: null };
+  }
+
+  const target = Number(raw);
+  if (!Number.isInteger(target) || target < 1) {
+    setTargetHint('Enter a whole number of 1 or more.', true);
+    input.focus();
+    return { ok: false };
+  }
+  return { ok: true, target };
+}
+
+function saveListModal() {
+  return editingListId ? updateList() : createList();
 }
 
 function renderIconGrid() {
@@ -287,6 +442,8 @@ async function createList() {
 
   if (!name)         { document.getElementById('list-name').focus(); return; }
   if (!activityType) { document.getElementById('activity-type-input').focus(); return; }
+  const { ok, target } = readTarget();
+  if (!ok) return;
 
   const { data: { session } } = await supabaseClient.auth.getSession();
 
@@ -296,7 +453,9 @@ async function createList() {
       user_id: session.user.id,
       name,
       activity_type: activityType,
-      icon: selectedIcon
+      icon: selectedIcon,
+      count_mode: selectedMode,
+      target
     })
     .select()
     .single();
@@ -308,13 +467,52 @@ async function createList() {
     name: data.name,
     activityType: data.activity_type,
     icon: data.icon,
+    countMode: data.count_mode,
+    target: data.target,
     createdAt: data.created_at,
     entries: []
   };
   state.lists.push(newList);
-  closeCreateModal();
+  closeListModal();
   renderHome();
   openDetail(newList.id);
+}
+
+async function updateList() {
+  const name         = document.getElementById('list-name').value.trim();
+  const activityType = document.getElementById('activity-type-input').value.trim();
+
+  if (!name)         { document.getElementById('list-name').focus(); return; }
+  if (!activityType) { document.getElementById('activity-type-input').focus(); return; }
+  const { ok, target } = readTarget();
+  if (!ok) return;
+
+  // .single() errors if no row came back, which is what happens when RLS blocks the update
+  const { data, error } = await supabaseClient
+    .from('lists')
+    .update({
+      name,
+      activity_type: activityType,
+      icon: selectedIcon,
+      count_mode: selectedMode,
+      target
+    })
+    .eq('id', editingListId)
+    .select()
+    .single();
+
+  if (error) { console.error('Update list error:', error); alert('Failed to save list: ' + error.message); return; }
+
+  const list = getList(editingListId);
+  Object.assign(list, {
+    name: data.name,
+    activityType: data.activity_type,
+    icon: data.icon,
+    countMode: data.count_mode,
+    target: data.target
+  });
+  closeListModal();
+  openDetail(list.id);
 }
 
 // ── Delete List ──────────────────────────────────────────────────────────────
@@ -341,6 +539,43 @@ async function deleteList() {
   closeDeleteConfirm();
   renderHome();
   showView('view-home');
+}
+
+// ── Archive List ─────────────────────────────────────────────────────────────
+// Archived lists are hidden from the main Home grid; restoring clears archived_at.
+async function setListArchived(listId, archive) {
+  const { data, error } = await supabaseClient
+    .from('lists')
+    .update({ archived_at: archive ? new Date().toISOString() : null })
+    .eq('id', listId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error('Archive list error:', error);
+    alert(`Failed to ${archive ? 'archive' : 'restore'} list: ${error.message}`);
+    return;
+  }
+
+  const list = getList(listId);
+  list.archivedAt = data.archived_at;
+
+  if (archive) {
+    // Archiving from the detail page sends you home, where the list is now tucked away
+    currentListId = null;
+    setActiveNav('nav-home');
+    renderHome();
+    showView('view-home');
+  } else if (document.getElementById('view-detail').classList.contains('active')) {
+    openDetail(listId);
+  } else {
+    renderHome();
+  }
+}
+
+function toggleArchivedSection() {
+  showArchived = !showArchived;
+  renderHome();
 }
 
 // ── Security ─────────────────────────────────────────────────────────────────
@@ -722,15 +957,15 @@ async function init() {
   document.getElementById('mob-home').addEventListener('click',    () => mobileNav(() => { setActiveNav('nav-home'); renderHome(); showView('view-home'); }));
   document.getElementById('mob-reports').addEventListener('click', () => mobileNav(() => openReports()));
   document.getElementById('mob-profile').addEventListener('click', () => mobileNav(() => openProfile()));
-  document.getElementById('btn-new-list-mobile').addEventListener('click', openCreateModal);
+  document.getElementById('btn-new-list-mobile').addEventListener('click', () => openListModal());
 
   // Desktop Nav
   document.getElementById('nav-logo').style.cursor = 'pointer';
   document.getElementById('nav-logo').addEventListener('click', () => { setActiveNav('nav-home'); renderHome(); showView('view-home'); });
   document.getElementById('nav-home').addEventListener('click', () => { setActiveNav('nav-home'); renderHome(); showView('view-home'); });
   document.getElementById('nav-reports').addEventListener('click', openReports);
-  document.getElementById('btn-new-list').addEventListener('click', openCreateModal);
-  document.getElementById('btn-new-list-empty').addEventListener('click', openCreateModal);
+  document.getElementById('btn-new-list').addEventListener('click', () => openListModal());
+  document.getElementById('btn-new-list-empty').addEventListener('click', () => openListModal());
   document.getElementById('btn-profile-nav').addEventListener('click', openProfile);
 
   // Profile
@@ -743,14 +978,25 @@ async function init() {
     showView('view-home');
   });
   document.getElementById('btn-add-entry').addEventListener('click', addEntry);
+  document.getElementById('btn-edit-list').addEventListener('click', () => openListModal(getList(currentListId)));
+  document.getElementById('btn-archive-list').addEventListener('click', () => {
+    setListArchived(currentListId, !getList(currentListId).archivedAt);
+  });
+
+  // Home: archived section
+  document.getElementById('btn-toggle-archived').addEventListener('click', toggleArchivedSection);
   document.getElementById('btn-delete-list').addEventListener('click', openDeleteConfirm);
 
-  // Create modal
-  document.getElementById('btn-modal-close').addEventListener('click', closeCreateModal);
-  document.getElementById('btn-cancel-modal').addEventListener('click', closeCreateModal);
-  document.getElementById('btn-create-list').addEventListener('click', createList);
+  // Create / edit modal
+  document.querySelectorAll('.mode-option').forEach(el => {
+    el.addEventListener('click', () => setCountMode(el.dataset.mode));
+  });
+  document.getElementById('target-input').addEventListener('input', () => setCountMode(selectedMode));
+  document.getElementById('btn-modal-close').addEventListener('click', closeListModal);
+  document.getElementById('btn-cancel-modal').addEventListener('click', closeListModal);
+  document.getElementById('btn-create-list').addEventListener('click', saveListModal);
   document.getElementById('modal-overlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('modal-overlay')) closeCreateModal();
+    if (e.target === document.getElementById('modal-overlay')) closeListModal();
   });
 
   // Delete confirm modal
@@ -758,6 +1004,12 @@ async function init() {
   document.getElementById('btn-confirm-delete').addEventListener('click', deleteList);
   document.getElementById('confirm-overlay').addEventListener('click', e => {
     if (e.target === document.getElementById('confirm-overlay')) closeDeleteConfirm();
+  });
+
+  // Goal reached modal
+  document.getElementById('btn-goal-close').addEventListener('click', closeGoalModal);
+  document.getElementById('goal-overlay').addEventListener('click', e => {
+    if (e.target === document.getElementById('goal-overlay')) closeGoalModal();
   });
 }
 

@@ -68,6 +68,15 @@
       </div>
       <p class="section-heading" id="lists-heading">Your Lists</p>
       <div id="lists-grid" class="lists-grid"></div>
+      <p id="all-archived-note" class="report-empty hidden">All your lists are archived.</p>
+
+      <div id="archived-section" class="archived-section hidden">
+        <button class="archived-toggle" id="btn-toggle-archived" aria-expanded="false" aria-controls="archived-grid">
+          <span id="archived-toggle-label">Archived</span>
+          <span class="archived-chevron">▾</span>
+        </button>
+        <div id="archived-grid" class="lists-grid hidden"></div>
+      </div>
     </main>
   </div>
 
@@ -83,9 +92,13 @@
           </div>
           <div class="detail-meta">
             <span class="badge" id="detail-type-badge"></span>
+            <span class="badge hidden" id="detail-archived-badge">Archived</span>
+            <button class="btn btn-ghost" id="btn-edit-list">Edit</button>
+            <button class="btn btn-ghost" id="btn-archive-list">Archive</button>
             <button class="btn btn-danger-outline" id="btn-delete-list">Delete</button>
           </div>
         </div>
+        <div id="detail-progress" class="detail-progress"></div>
       </div>
 
       <div class="add-entry-bar">
@@ -263,6 +276,16 @@
         <label class="form-label" style="margin-top:20px" for="activity-type-input">Activity Type</label>
         <input type="text" id="activity-type-input" class="form-input" placeholder="e.g. Running, Journaling, Cold Shower..." maxlength="40" autocomplete="off" />
 
+        <label class="form-label" style="margin-top:20px">Counting</label>
+        <div class="mode-toggle" role="group" aria-label="Counting mode">
+          <button type="button" class="mode-option" id="mode-up" data-mode="up">↑ Count Up</button>
+          <button type="button" class="mode-option" id="mode-down" data-mode="down">↓ Count Down</button>
+        </div>
+
+        <label class="form-label" style="margin-top:20px" for="target-input" id="target-label">Goal (optional)</label>
+        <input type="number" id="target-input" class="form-input" min="1" step="1" inputmode="numeric" autocomplete="off" />
+        <p class="form-hint" id="target-hint"></p>
+
         <label class="form-label" style="margin-top:20px">Icon</label>
         <div class="icon-grid" id="icon-grid"></div>
       </div>
@@ -301,6 +324,20 @@
       <div class="modal-footer">
         <button class="btn btn-ghost" id="btn-cancel-delete">Cancel</button>
         <button class="btn btn-danger" id="btn-confirm-delete">Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GOAL REACHED MODAL -->
+  <div id="goal-overlay" class="modal-overlay hidden">
+    <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="goal-title">
+      <div class="modal-body goal-body">
+        <div class="goal-emoji">🎉</div>
+        <h2 id="goal-title" class="goal-title">Goal Reached!</h2>
+        <p id="goal-message" class="goal-message"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btn-goal-close">Awesome</button>
       </div>
     </div>
   </div>

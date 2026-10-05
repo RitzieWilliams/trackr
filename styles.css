@@ -250,6 +250,71 @@ body {
   letter-spacing: 0.08em;
 }
 
+.card-progress {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 6px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+/* ── Goal progress ── */
+.goal-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  background: var(--primary);
+  color: var(--primary-text);
+  white-space: nowrap;
+}
+
+.detail-progress { margin-top: 20px; }
+.detail-progress:empty { display: none; }
+
+.detail-progress-row {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+}
+
+.detail-progress-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.detail-progress-sub {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detail-progress-row .goal-badge { align-self: center; }
+
+.progress-bar-wrap {
+  height: 4px;
+  background: var(--border);
+  margin-top: 14px;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--text);
+  transition: width 0.4s ease;
+}
+
 .card-stats {
   display: flex;
   gap: 20px;
@@ -259,6 +324,39 @@ body {
 }
 
 .card-stats strong { color: var(--text); font-weight: 700; }
+
+/* ── Archived lists ── */
+.archived-section {
+  margin-top: 40px;
+}
+
+.archived-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 0 0 12px;
+  margin-bottom: 20px;
+  font-family: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color var(--transition);
+}
+.archived-toggle:hover { color: var(--text); }
+
+.archived-chevron { transition: transform var(--transition); }
+.archived-section.open .archived-chevron { transform: rotate(180deg); }
+
+.list-card.archived::after { display: none; }
+.list-card.archived .card-top { opacity: 0.55; }
+.card-restore { margin-left: auto; }
 
 /* ── Accent bar per card ── */
 .card-accent-bar {
@@ -488,11 +586,26 @@ body {
   border-radius: 0;
   width: 100%;
   max-width: 500px;
+  max-height: calc(100vh - 40px);
+  overflow-y: auto;
   box-shadow: var(--shadow);
   animation: modal-in 0.15s ease;
 }
 
 .modal-sm { max-width: 400px; }
+
+/* ── Goal Reached Modal ── */
+.goal-body { text-align: center; padding-top: 36px; }
+.goal-emoji { font-size: 3rem; margin-bottom: 12px; }
+.goal-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: -0.02em;
+  margin-bottom: 8px;
+}
+.goal-message { color: var(--text-muted); font-size: 0.9rem; }
+#goal-overlay .modal-footer { justify-content: center; }
 
 @keyframes modal-in {
   from { opacity: 0; transform: translateY(16px); }
@@ -562,6 +675,36 @@ body {
 }
 .form-input:focus { border-color: var(--text); }
 .form-input::placeholder { color: var(--text-muted); }
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.form-hint-error { color: var(--danger); }
+
+/* ── Count Mode Toggle ── */
+.mode-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 1px solid var(--border);
+}
+
+.mode-option {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 11px 12px;
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition);
+}
+.mode-option:hover { color: var(--text); }
+.mode-option.active { background: var(--primary); color: var(--primary-text); }
 
 /* ── Icon Grid ── */
 .icon-grid {
@@ -1144,6 +1287,8 @@ body {
   .btn-add-activity { width: 100%; justify-content: center; }
   .report-summary { grid-template-columns: repeat(3, 1fr); }
   .detail-page-title { font-size: 1.2rem; }
+  .detail-meta { flex-wrap: wrap; flex-shrink: 1; }
+  .detail-progress-value { font-size: 1.3rem; }
 
   /* Center logo on mobile */
   .header-inner { position: relative; }
