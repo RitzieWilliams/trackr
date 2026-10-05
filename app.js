@@ -82,20 +82,33 @@ function saveProfile() {
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-function timeAgo(iso) {
-  const seconds = Math.floor((Date.now() - new Date(iso)) / 1000);
-  if (seconds < 60)  return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60)  return `${minutes} min ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24)    return `${hours} hr ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7)      return `${days}d ago`;
-  const weeks = Math.floor(days / 7);
-  if (weeks < 5)     return `${weeks}w ago`;
-  const months = Math.floor(days / 30);
-  if (months < 12)   return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
+function dayLabel(iso) {
+  const day = new Date(iso);
+  day.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today - day) / 86_400_000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  const opts = { weekday: 'long', month: 'short', day: 'numeric' };
+  if (day.getFullYear() !== today.getFullYear()) opts.year = 'numeric';
+  return day.toLocaleDateString(undefined, opts);
+}
+
+// Splits entries (already sorted by date) into runs that share a local calendar day
+function groupByDay(entries) {
+  const groups = [];
+  for (const entry of entries) {
+    const key = new Date(entry.createdAt).toDateString();
+    const last = groups[groups.length - 1];
+    if (last && last.key === key) last.entries.push(entry);
+    else groups.push({ key, entries: [entry] });
+  }
+  return groups;
+}
+
+function timeOfDay(iso) {
+  return new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 
 function getListIcon(list) {
@@ -178,19 +191,29 @@ function renderEntries() {
 
   noEntries.classList.add('hidden');
 
-  // Show most recent first
-  const sorted = [...list.entries].reverse();
+  // Show most recent first, grouped by local calendar day
+  const sorted = [...list.entries].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
-  ul.innerHTML = sorted.map(entry => `
-    <li class="entry-item" data-id="${entry.id}">
-      <span class="entry-text">${escHtml(entry.text)}</span>
-      <span class="entry-date">${timeAgo(entry.createdAt)}</span>
-      <button class="entry-delete" data-action="delete" title="Delete entry">&times;</button>
+  ul.innerHTML = groupByDay(sorted).map(group => `
+    <li class="entry-group">
+      <div class="entry-group-header">
+        <span class="entry-group-label">${dayLabel(group.entries[0].createdAt)}</span>
+        <span class="entry-group-count">${group.entries.length}</span>
+      </div>
+      <ul class="entry-group-items">
+        ${group.entries.map(entry => `
+          <li class="entry-item" data-id="${entry.id}">
+            <span class="entry-text">${escHtml(entry.text)}</span>
+            <span class="entry-date">${timeOfDay(entry.createdAt)}</span>
+            <button class="entry-delete" data-action="delete" title="Delete entry">&times;</button>
+          </li>
+        `).join('')}
+      </ul>
     </li>
   `).join('');
 
   ul.querySelectorAll('[data-action="delete"]').forEach(el => {
-    el.addEventListener('click', () => deleteEntry(el.closest('li').dataset.id));
+    el.addEventListener('click', () => deleteEntry(el.closest('.entry-item').dataset.id));
   });
 }
 
@@ -406,14 +429,23 @@ function renderReports() {
     const recent = allEntries
       .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
       .slice(0, 20);
-    feed.innerHTML = recent.map(e => `
-      <li class="report-feed-item">
-        <span class="report-feed-icon">${getListIcon(e.list)}</span>
-        <div class="report-feed-text">
-          <div>${escHtml(e.text)}</div>
-          <div class="report-feed-list">${escHtml(e.list.name)}</div>
+    feed.innerHTML = groupByDay(recent).map(group => `
+      <li class="entry-group">
+        <div class="entry-group-header">
+          <span class="entry-group-label">${dayLabel(group.entries[0].createdAt)}</span>
+          <span class="entry-group-count">${group.entries.length}</span>
         </div>
-        <span class="report-feed-time">${timeAgo(e.createdAt)}</span>
+        <ul class="entry-group-items">
+          ${group.entries.map(e => `
+            <li class="report-feed-item">
+              <span class="report-feed-icon">${getListIcon(e.list)}</span>
+              <div class="report-feed-text">
+                <div>${escHtml(e.text)}</div>
+                <div class="report-feed-list">${escHtml(e.list.name)}</div>
+              </div>
+              <span class="report-feed-time">${timeOfDay(e.createdAt)}</span>
+            </li>`).join('')}
+        </ul>
       </li>`).join('');
   }
 }
@@ -731,7 +763,7 @@ async function init() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   await init();
-  // Refresh timestamps every 30 seconds while the detail view is visible
+  // Re-render every 30 seconds so day labels (Today/Yesterday) roll over at midnight
   setInterval(() => {
     if (currentListId && document.getElementById('view-detail').classList.contains('active')) {
       renderEntries();
