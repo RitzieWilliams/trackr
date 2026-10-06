@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TRACKR Support</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .policy { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+    .policy h1 { font-size: 1.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: -0.03em; margin-bottom: 8px; }
+    .policy h2 { font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; margin: 36px 0 12px; }
+    .policy h3 { font-size: 0.95rem; font-weight: 700; margin: 22px 0 6px; }
+    .policy p, .policy li { color: var(--text-muted); margin-bottom: 10px; }
+    .policy ul { padding-left: 20px; }
+    .policy a { color: var(--text); }
+    .contact-box { background: var(--surface); padding: 20px 22px; margin-top: 16px; }
+    .contact-box p { margin: 0; }
+    .contact-box a { font-weight: 700; }
+  </style>
+</head>
+<body>
+  <main class="policy">
+    <h1>Support</h1>
+    <p>Help with TRACKR on iPhone, Android and the web.</p>
+
+    <h2>Contact us</h2>
+    <div class="contact-box">
+      <p>Email <a href="mailto:info@agilelifemgmt.com">info@agilelifemgmt.com</a> and we'll get back to you as soon as we can. Let us know which device you're using and what happened.</p>
+    </div>
+
+    <h2>Common questions</h2>
+
+    <h3>How do goals work?</h3>
+    <p>When you create a list, choose how it counts:</p>
+    <ul>
+      <li><strong>Count Up</strong> adds one for each entry. Set an optional goal (like 30) and you'll get a celebration when you reach it.</li>
+      <li><strong>Count Down</strong> starts from a number you choose (like 10) and each entry takes one away. You'll be celebrated when it hits zero, and you can keep logging past it.</li>
+    </ul>
+
+    <h3>Can I change a list after creating it?</h3>
+    <p>Yes. Open the list and tap <strong>Edit</strong> to change its name, activity type, icon, counting mode or goal.</p>
+
+    <h3>How do I hide a list without deleting it?</h3>
+    <p>Open the list and tap <strong>Archive</strong>. Archived lists move to the <strong>Archived</strong> section at the bottom of your Lists screen, where you can tap <strong>Restore</strong> to bring them back. Your entries are kept.</p>
+
+    <h3>How do I delete an entry or a list?</h3>
+    <p>Tap the <strong>×</strong> next to an entry to remove it. To delete a whole list and all its entries, open the list and tap <strong>Delete</strong>. Deleting can't be undone.</p>
+
+    <h3>Are my lists on all my devices?</h3>
+    <p>Yes. Your lists are saved to your account, so they appear wherever you log in — the iPhone and Android apps, and on the web at <a href="https://trackr.agilelifemgmt.com">trackr.agilelifemgmt.com</a>.</p>
+
+    <h3>I forgot my password</h3>
+    <p>Email us from the address you signed up with and we'll help you get back in.</p>
+
+    <h3>How do I delete my account?</h3>
+    <p>In the app, go to <strong>Profile → Delete Account</strong>. This permanently deletes your account, lists and entries. If you can't access the app, email us from your account's address and we'll delete it for you.</p>
+
+    <h2>Privacy</h2>
+    <p>Read how we handle your data in our <a href="privacy.html">Privacy Policy</a>.</p>
+  </main>
+  <script>
+    // Match the theme chosen in the app
+    try { if (localStorage.getItem('theme') === 'light') document.documentElement.setAttribute('data-theme', 'light'); } catch (_) {}
+  </script>
+</body>
+</html>
